@@ -304,6 +304,7 @@ para la memoria técnica.
 | SQLAlchemy síncrono | asyncpg + SQLAlchemy async | Simplicidad; el ORM async requiere reescribir todos los endpoints |
 | Azure Container Apps | Azure Container Instances | Container Apps gestiona HTTPS, escalado y revisiones automáticamente |
 | Azure DB for PostgreSQL Flexible | Contenedor Postgres en Azure | El PaaS de BD es la práctica real de producción que el entregable busca demostrar |
+| Docker Hub como registro de imágenes | Azure Container Registry (ACR) | Docker Hub ya está configurado del P4; ACR requiere suscripción de pago. El pipeline y la arquitectura son idénticos cambiando solo el registro destino |
 | `SqlRepository` inyectado | BD acoplada en `TaskManager` | Principio D: `TaskManager` sigue operando contra el protocolo sin conocer SQLAlchemy |
 | SQLite en memoria para tests | Levantar Postgres en tests | Rapidez y cero dependencias externas en CI; SQLAlchemy abstrae el dialecto |
 | `Base.metadata.create_all` en startup | Alembic migrations | Simplicidad para el entregable; en producción real se usaría Alembic |

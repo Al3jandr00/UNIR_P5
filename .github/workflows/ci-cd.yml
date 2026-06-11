@@ -1,4 +1,4 @@
-name: CI/CD — Test, Build, Push ACR, Deploy Azure
+name: CI/CD — Test, Build, Push Docker Hub, Deploy Azure
 
 on:
   push:
@@ -7,8 +7,7 @@ on:
     branches: [main]
 
 env:
-  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
-  IMAGE_NAME: task-manager-api
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/task-manager-api
 
 jobs:
   # ── Job 1: Tests ──────────────────────────────────────────────────────────
@@ -34,9 +33,9 @@ jobs:
           AI_ALLOW_LOCAL_FALLBACK: "true"
           DB_URL: "sqlite:///:memory:"
 
-  # ── Job 2: Build y push a Azure Container Registry ───────────────────────
-  docker-build-push-acr:
-    name: Build and push to ACR
+  # ── Job 2: Build y push a Docker Hub ─────────────────────────────────────
+  docker-build-push:
+    name: Build and push to Docker Hub
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -45,25 +44,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Log in to Azure Container Registry
-        uses: azure/docker-login@v2
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
-          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker image
-        run: |
-          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest \
-                       -t ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-                       .
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
   # ── Job 3: Deploy en Azure Container Apps ────────────────────────────────
   azure-deploy:
     name: Deploy to Azure Container Apps
-    needs: docker-build-push-acr
+    needs: docker-build-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
@@ -78,7 +77,7 @@ jobs:
           az containerapp update \
             --name task-manager-api \
             --resource-group rg-taskmanager \
-            --image ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            --image ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Verify deployment
         run: |
