@@ -226,25 +226,48 @@ La aplicación queda disponible en `http://localhost:8000` con PostgreSQL corrie
 
 ---
 
-## 5. Registro de imagen en Docker Hub
+## 5. Registro de imagen en Azure Container Registry (ACR)
 
-### 5.1 Decisión: Docker Hub vs Azure Container Registry
+### 5.1 Creación del ACR
 
-Se optó por **Docker Hub** en lugar de Azure Container Registry (ACR) por las siguientes razones:
-- ACR requiere suscripción de pago (tier Basic: ~5€/mes)
-- Docker Hub ya estaba configurado desde el Entregable 4
-- La arquitectura del pipeline y el despliegue son idénticos; solo cambia la URL del registro
-
-### 5.2 Construcción y publicación
-
-El pipeline construye y publica automáticamente con dos tags:
-- `latest`: siempre apunta a la versión más reciente
-- `<SHA del commit>`: permite rastrear exactamente qué código está desplegado
+Se creó un Azure Container Registry en el mismo resource group que el resto de recursos:
 
 ```bash
-# Ejemplo de tags generados
+az acr create \
+  --resource-group rg-taskmanager \
+  --name taskmanageracr5 \
+  --sku Basic \
+  --location northeurope
+```
+
+El registro quedó disponible en: `taskmanageracr5.azurecr.io`
+
+### 5.2 Publicación de la imagen
+
+Login, etiquetado y push de la imagen al ACR:
+
+```bash
+az acr login --name taskmanageracr5
+
+docker tag proyecto5-app:latest taskmanageracr5.azurecr.io/task-manager-api:latest
+docker push taskmanageracr5.azurecr.io/task-manager-api:latest
+```
+
+![Push de la imagen a Azure Container Registry](Captura_ACR_push.png)
+
+![Repositorios disponibles en ACR](Captura_ACR_list.png)
+
+### 5.3 Pipeline CI/CD con Docker Hub
+
+El pipeline de GitHub Actions publica adicionalmente en **Docker Hub** para el despliegue automático en Azure Container Apps, ya que ACR requiere configuración de credenciales adicionales en el Container App. La imagen en ACR sirve como registro oficial de Azure y cumple el requisito del entregable; la imagen en Docker Hub actúa como fuente de despliegue en el pipeline automatizado.
+
+```bash
+# Tags en Docker Hub (pipeline CI/CD)
 al3jandr00/task-manager-api:latest
-al3jandr00/task-manager-api:a3f2c1d8e9b0...
+al3jandr00/task-manager-api:<SHA-commit>
+
+# Tag en ACR (registro oficial Azure)
+taskmanageracr5.azurecr.io/task-manager-api:latest
 ```
 
 ![Imágenes publicadas en Docker Hub](Captura4.png)
@@ -258,6 +281,7 @@ al3jandr00/task-manager-api:a3f2c1d8e9b0...
 | Recurso | Nombre | Región | Tier |
 |---------|--------|--------|------|
 | Resource Group | rg-taskmanager | northeurope | — |
+| Container Registry (ACR) | taskmanageracr5 | northeurope | Basic |
 | PostgreSQL Flexible Server | taskmanager-db | westeurope | Standard_B1ms (Burstable) |
 | Container Apps Environment | taskmanager-env | northeurope | Consumption |
 | Container App | task-manager-api | northeurope | — |
