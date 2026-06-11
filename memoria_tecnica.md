@@ -20,7 +20,7 @@ Este documento describe el proceso técnico de despliegue en Azure de la API de 
 | E2 | Integración con OpenAI (describe, categorize, estimate, audit) |
 | E3 | SQLAlchemy + MySQL, persistencia relacional |
 | E4 | Dockerfile non-root, pipeline CI/CD básico, Docker Hub |
-| **E5** | **docker-compose, Azure Container Apps, PostgreSQL en Azure, pipeline completo** |
+| **E5** | **docker-compose, ACR, Azure Container Apps, PostgreSQL en Azure, pipeline CI/CD completo** |
 
 ---
 
@@ -34,12 +34,12 @@ Este documento describe el proceso técnico de despliegue en Azure de la API de 
 │  git push main → GitHub Actions (test → build → deploy) │
 └─────────────────────┬───────────────────────────────────┘
                       │
-              ┌───────▼────────┐
-              │   Docker Hub   │
-              │  imagen:latest │
-              │  imagen:<SHA>  │
-              └───────┬────────┘
-                      │ pull
+       ┌──────▼──────┐  ┌─────────────────────────┐
+       │  Docker Hub │  │  ACR (taskmanageracr5)  │
+       │  :latest    │  │  task-manager-api:latest│
+       │  :<SHA>     │  │  (registro oficial Azure)│
+       └──────┬──────┘  └─────────────────────────┘
+              │ pull (deploy)
 ┌─────────────────────▼───────────────────────────────────┐
 │              Azure (northeurope)                         │
 │                                                          │
@@ -561,7 +561,7 @@ curl https://task-manager-api.icyglacier-6bebbc16.northeurope.azurecontainerapps
 
 | Decisión | Alternativa descartada | Motivo |
 |----------|------------------------|--------|
-| Docker Hub | Azure Container Registry | ACR requiere suscripción de pago; el pipeline es idéntico |
+| ACR como registro oficial + Docker Hub para pipeline | Solo ACR en todo el flujo | ACR está integrado como registro de Azure; Docker Hub se mantiene en el pipeline CI/CD por su integración nativa con GitHub Actions |
 | Azure Container Apps | Azure Container Instances | Container Apps gestiona HTTPS, revisiones y escalado automáticamente |
 | Azure DB for PostgreSQL | Contenedor Postgres en Azure | PaaS gestionado: backups, parches y alta disponibilidad incluidos |
 | SQLAlchemy síncrono | asyncpg + SQLAlchemy async | Simplicidad; async requeriría reescribir todos los endpoints |
@@ -600,6 +600,7 @@ pytest tests/ -v
 El Entregable 5 completa el ciclo DevOps de la API de Gestión de Tareas:
 
 - **Contenerización completa**: Dockerfile non-root + docker-compose con PostgreSQL, healthchecks y volumen persistente
+- **Registro en Azure (ACR)**: imagen publicada en `taskmanageracr5.azurecr.io` como registro oficial de Azure
 - **Despliegue cloud**: Azure Container Apps con HTTPS automático, escalado y sistema de revisiones
 - **Base de datos gestionada**: Azure Database for PostgreSQL Flexible Server con SSL obligatorio
 - **CI/CD automatizado**: 3 jobs (test → build/push → deploy) que garantizan que solo código probado llega a producción
