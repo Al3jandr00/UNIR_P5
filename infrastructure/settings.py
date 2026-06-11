@@ -43,7 +43,7 @@ def _build_db_url() -> str:
     name = os.getenv("DB_NAME", "tasks")
     user = os.getenv("DB_USER", "postgres")
     password = os.getenv("DB_PASSWORD", "postgres")
-    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}?sslmode=require"
 
 
 @dataclass(frozen=True)
