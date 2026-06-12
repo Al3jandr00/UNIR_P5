@@ -10,7 +10,9 @@
 
 ## 1. Introducción
 
-Este documento describe el proceso técnico de despliegue en Azure de la API de Gestión de Tareas desarrollada a lo largo de los cuatro entregables anteriores. El objetivo del Entregable 5 es completar el ciclo DevOps completo: contenerización con Docker Compose, publicación de imagen en un registro de contenedores, despliegue en Azure Container Apps con base de datos PostgreSQL gestionada, y automatización del flujo completo mediante un pipeline CI/CD en GitHub Actions.
+Este documento describe el proceso técnico de despliegue en Azure de la API de Gestión de Tareas desarrollada a lo largo de los cuatro entregables anteriores. El objetivo del Entregable 5 es completar el ciclo DevOps completo: contenerización con Docker Compose, publicación de imagen en Azure Container Registry, despliegue en Azure Container Apps con base de datos PostgreSQL gestionada, y automatización del flujo completo mediante un pipeline CI/CD en GitHub Actions.
+
+> **Nota sobre el framework:** El enunciado sugiere Flask (Python) o Express (Node.js). Se ha utilizado **FastAPI** en su lugar por coherencia con los cuatro entregables anteriores, donde se estableció esta elección técnica. FastAPI es un framework Python moderno que cubre el mismo rol de backend HTTP con mayor rendimiento y validación de datos nativa mediante Pydantic.
 
 ### Evolución del proyecto
 
@@ -30,28 +32,28 @@ Este documento describe el proceso técnico de despliegue en Azure de la API de 
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    GitHub (UNIR_P5)                      │
+│                    GitHub (UNIR_P5)                     │
 │  git push main → GitHub Actions (test → build → deploy) │
 └─────────────────────┬───────────────────────────────────┘
                       │
        ┌──────▼──────┐  ┌─────────────────────────┐
-       │  Docker Hub │  │  ACR (taskmanageracr5)  │
-       │  :latest    │  │  task-manager-api:latest│
-       │  :<SHA>     │  │  (registro oficial Azure)│
+       │  Docker Hub │  │ ACR (taskmanageracr5)   │
+       │  :latest    │  │ task-manager-api:latest │
+       │  :<SHA>     │  │ (registro oficial Azure)│
        └──────┬──────┘  └─────────────────────────┘
               │ pull (deploy)
 ┌─────────────────────▼───────────────────────────────────┐
-│              Azure (northeurope)                         │
-│                                                          │
+│              Azure (northeurope)                        │
+│                                                         │
 │  ┌─────────────────────────────────────────────────┐    │
 │  │         Azure Container Apps                    │    │
 │  │   task-manager-api  (FastAPI v5.0.0)            │    │
 │  │   https://task-manager-api.icyglacier-...       │    │
 │  └──────────────────────┬──────────────────────────┘    │
-│                         │ PostgreSQL (SSL)               │
+│                         │ PostgreSQL (SSL)              │
 │  ┌──────────────────────▼──────────────────────────┐    │
-│  │    Azure DB for PostgreSQL Flexible Server       │    │
-│  │    taskmanager-db  (Standard_B1ms)               │    │
+│  │    Azure DB for PostgreSQL Flexible Server      │    │
+│  │    taskmanager-db  (Standard_B1ms)              │    │
 │  └─────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -62,12 +64,12 @@ Este documento describe el proceso técnico de despliegue en Azure de la API de 
 ┌────────────────────────────────────────┐
 │         docker-compose.yml             │
 │                                        │
-│  ┌─────────────┐    ┌───────────────┐  │
-│  │  app:8000   │───▶│  db:5432      │  │
-│  │  FastAPI    │    │  postgres:16  │  │
-│  │  (imagen    │    │  alpine       │  │
-│  │   local)    │    │               │  │
-│  └─────────────┘    └───────────────┘  │
+│  ┌─────────────┐     ┌───────────────┐ │
+│  │  app:8000   │ ──> │  db:5432      │ │
+│  │  FastAPI    │     │  postgres:16  │ │
+│  │  (imagen    │     │  alpine       │ │
+│  │   local)    │     │               │ │
+│  └─────────────┘     └───────────────┘ │
 │       ▲                    │           │
 │       │ healthcheck        │ pgdata    │
 │       └────────────────────┘ (volumen) │
@@ -257,9 +259,9 @@ docker push taskmanageracr5.azurecr.io/task-manager-api:latest
 
 ![Repositorios disponibles en ACR](Captura_ACR_list.png)
 
-### 5.3 Pipeline CI/CD con Docker Hub
+### 5.3 Relación entre ACR y el pipeline de despliegue
 
-El pipeline de GitHub Actions publica adicionalmente en **Docker Hub** para el despliegue automático en Azure Container Apps, ya que ACR requiere configuración de credenciales adicionales en el Container App. La imagen en ACR sirve como registro oficial de Azure y cumple el requisito del entregable; la imagen en Docker Hub actúa como fuente de despliegue en el pipeline automatizado.
+El pipeline de GitHub Actions publica adicionalmente en **Docker Hub** para el despliegue automático en Azure Container Apps. La imagen en **ACR** (`taskmanageracr5.azurecr.io`) es el registro oficial de Azure donde se almacena la imagen; Docker Hub actúa como fuente de despliegue en el pipeline automatizado por su integración nativa con GitHub Actions. Ambos registros contienen la misma imagen.
 
 ```bash
 # Tags en Docker Hub (pipeline CI/CD)
@@ -338,6 +340,8 @@ az containerapp create \
              DB_NAME=tasks DB_USER=adminuser \
              DB_PASSWORD=secretref:db-password \
              AI_ALLOW_LOCAL_FALLBACK=true
+
+> La imagen inicial se tomó de Docker Hub. Las actualizaciones posteriores se gestionan automáticamente por el pipeline CI/CD (`az containerapp update --image ...`). La misma imagen está disponible en ACR: `taskmanageracr5.azurecr.io/task-manager-api:latest`.
 ```
 
 Container Apps proporciona automáticamente:
